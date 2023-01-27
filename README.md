@@ -24,8 +24,6 @@ cargo run
 
 Help : 
 
-Run : 
-
 ```
 cargo run -- --help
 ```
