@@ -13,6 +13,9 @@ struct Cli {
     #[arg(default_value="./ressources/rat.png", long = "imgfile")]
     image_path: std::path::PathBuf,
 
+    #[arg(default_value="./out_skel.png", long = "outfile")]
+    output_path: std::path::PathBuf,
+
     #[arg(default_value="1.0", long = "epsilon")]
     epsilon: f32,
 }
@@ -21,6 +24,7 @@ fn main() -> Result<()> {
     let args = Cli::parse();
     
     let image_path_str = args.image_path.to_str().unwrap_or("");
+    let output_path_str = args.output_path.to_str().unwrap_or("");
     let epsilon = args.epsilon;
     
     let mask = image::open(image_path_str)?;
@@ -83,7 +87,7 @@ fn main() -> Result<()> {
         }
     }
 
-    image::save_buffer("exp.png", mask_rgb.as_bytes(), mask_rgb.width(), mask_rgb.height(), mask_rgb.color())?;
+    image::save_buffer(output_path_str, mask_rgb.as_bytes(), mask_rgb.width(), mask_rgb.height(), mask_rgb.color())?;
 
     Ok(())
 }
