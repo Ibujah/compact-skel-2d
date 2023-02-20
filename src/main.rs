@@ -5,8 +5,8 @@ use std::time::Instant;
 use image::GenericImageView;
 use imageproc;
 
-use compact_skel_2d::skeleton2d;
-use compact_skel_2d::boundary2d;
+use compact_skel_2d::skeleton2d::skeleton2d;
+use compact_skel_2d::boundary2d::boundary2d;
 
 #[derive(Parser)]
 struct Cli {
