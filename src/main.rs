@@ -63,9 +63,6 @@ fn main() -> Result<()> {
         let ind_max = skeleton2d::find_nearest_maximum(&mut skel, ind_tri)?;
         println!("Skeleton propagation");
         skeleton2d::propagate_from(&mut skel, ind_max, epsilon)?;
-        let duration = now.elapsed();
-
-        println!("Skeleton computed in {}ms", duration.as_millis());
 
         let circle = skel.get_circle(ind_max)?;
         imageproc::drawing::draw_hollow_circle_mut(&mut mask_rgb, 
@@ -86,6 +83,8 @@ fn main() -> Result<()> {
                                                       image::Rgba::<u8>([255u8, 0u8, 0u8, 255u8]));
         }
     }
+    let duration = now.elapsed();
+    println!("Skeleton computed in {}ms", duration.as_millis());
 
     image::save_buffer(output_path_str, mask_rgb.as_bytes(), mask_rgb.width(), mask_rgb.height(), mask_rgb.color())?;
 
