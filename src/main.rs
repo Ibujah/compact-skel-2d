@@ -1,60 +1,72 @@
-use clap::Parser;
 use anyhow::Result;
+use clap::Parser;
 use std::time::Instant;
 
 use image::GenericImageView;
 use imageproc;
 
-use compact_skel_2d::skeleton2d::skeleton2d;
 use compact_skel_2d::boundary2d::boundary2d;
+use compact_skel_2d::skeleton2d::skeleton2d;
 
 #[derive(Parser)]
 struct Cli {
-    #[arg(default_value="./ressources/rat.png", long = "imgfile")]
-    image_path: std::path::PathBuf,
+    #[arg(default_value = "./ressources/rat.png", long = "imgin")]
+    image_in_path: std::path::PathBuf,
 
-    #[arg(default_value="./out_skel.png", long = "outfile")]
-    output_path: std::path::PathBuf,
+    #[arg(default_value = "./ressources/rat_skel.png", long = "imgout")]
+    image_out_path: std::path::PathBuf,
 
-    #[arg(default_value="1.0", long = "epsilon")]
+    #[arg(default_value = "1.0", long = "epsilon")]
     epsilon: f32,
+
+    #[arg(default_value = "./ressources/nod.txt", long = "nodout")]
+    nod_out_path: std::path::PathBuf,
+
+    #[arg(default_value = "./ressources/edg.txt", long = "edgout")]
+    edg_out_path: std::path::PathBuf,
+
+    #[arg(default_value = "./ressources/del.txt", long = "delout")]
+    del_out_path: std::path::PathBuf,
+
+    #[arg(default_value = "./ressources/bnd.txt", long = "bndout")]
+    bnd_out_path: std::path::PathBuf,
 }
 
 fn main() -> Result<()> {
     let args = Cli::parse();
-    
-    let image_path_str = args.image_path.to_str().unwrap_or("");
-    let output_path_str = args.output_path.to_str().unwrap_or("");
+
+    let image_path_str = args.image_in_path.to_str().unwrap_or("");
+    let output_path_str = args.image_out_path.to_str().unwrap_or("");
     let epsilon = args.epsilon;
-    
+
     let mask = image::open(image_path_str)?;
-    let mask_luma8 = mask.as_luma8().ok_or(anyhow::Error::msg("Could not convert to luma8"))?;
-    let mask_rgb = 
-        image::RgbImage::from_vec(
-            mask.width(), 
-            mask.height(), 
-            mask.as_bytes()
+    let mask_luma8 = mask
+        .as_luma8()
+        .ok_or(anyhow::Error::msg("Could not convert to luma8"))?;
+    let mask_rgb = image::RgbImage::from_vec(
+        mask.width(),
+        mask.height(),
+        mask.as_bytes()
             .to_vec()
             .into_iter()
-            .fold(
-                Vec::<u8>::new(),
-                |mut vec, x| 
-                {
-                    let v = if x >= 125 {255} else {0};
-                    vec.push(v);vec.push(v);vec.push(v);
-                    vec
-                }
-                )
-            ).ok_or(anyhow::Error::msg("Could not convert gray to rgb"))?;
+            .fold(Vec::<u8>::new(), |mut vec, x| {
+                let v = if x >= 125 { 255 } else { 0 };
+                vec.push(v);
+                vec.push(v);
+                vec.push(v);
+                vec
+            }),
+    )
+    .ok_or(anyhow::Error::msg("Could not convert gray to rgb"))?;
     let mut mask_rgb = image::DynamicImage::ImageRgb8(mask_rgb);
 
-    
     let now = Instant::now();
     println!("Boundary computation");
     let vec_bnd = boundary2d::Boundary2d::from_marching_squares(mask_luma8)?;
     for bnd in vec_bnd {
         println!("Skeleton initialization");
-        let mut skel = skeleton2d::Skeleton::init(&bnd.points, &bnd.next_neighbor, &bnd.prev_neighbor);
+        let mut skel =
+            skeleton2d::Skeleton::init(&bnd.points, &bnd.next_neighbor, &bnd.prev_neighbor);
         println!("Delaunay triangles computation");
         skel.compute_delaunay_triangles()?;
         println!("Finding first triangle");
@@ -65,10 +77,15 @@ fn main() -> Result<()> {
         skeleton2d::propagate_from(&mut skel, ind_max, epsilon)?;
 
         let circle = skel.get_circle(ind_max)?;
-        imageproc::drawing::draw_hollow_circle_mut(&mut mask_rgb, 
-                                                   ((circle.center[0]+0.5) as i32, (circle.center[1]+0.5) as i32), 
-                                                   (circle.radius+0.5) as i32, 
-                                                   image::Rgba::<u8>([0u8, 0u8, 255u8, 255u8]));
+        imageproc::drawing::draw_hollow_circle_mut(
+            &mut mask_rgb,
+            (
+                (circle.center[0] + 0.5) as i32,
+                (circle.center[1] + 0.5) as i32,
+            ),
+            (circle.radius + 0.5) as i32,
+            image::Rgba::<u8>([0u8, 0u8, 255u8, 255u8]),
+        );
 
         let edges_ind = skel.get_edges_ind();
 
@@ -77,16 +94,24 @@ fn main() -> Result<()> {
             let cir2 = skel.get_circle(i2)?;
             let ctr1 = cir1.center;
             let ctr2 = cir2.center;
-            imageproc::drawing::draw_line_segment_mut(&mut mask_rgb, 
-                                                      (ctr1[0], ctr1[1]), 
-                                                      (ctr2[0], ctr2[1]), 
-                                                      image::Rgba::<u8>([255u8, 0u8, 0u8, 255u8]));
+            imageproc::drawing::draw_line_segment_mut(
+                &mut mask_rgb,
+                (ctr1[0], ctr1[1]),
+                (ctr2[0], ctr2[1]),
+                image::Rgba::<u8>([255u8, 0u8, 0u8, 255u8]),
+            );
         }
     }
     let duration = now.elapsed();
     println!("Skeleton computed in {}ms", duration.as_millis());
 
-    image::save_buffer(output_path_str, mask_rgb.as_bytes(), mask_rgb.width(), mask_rgb.height(), mask_rgb.color())?;
+    image::save_buffer(
+        output_path_str,
+        mask_rgb.as_bytes(),
+        mask_rgb.width(),
+        mask_rgb.height(),
+        mask_rgb.color(),
+    )?;
 
     Ok(())
 }
