@@ -2,6 +2,8 @@ use anyhow::Result;
 use delaunator::{triangulate, Point};
 use nalgebra::base::*;
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Write;
 
 use crate::geometry::geometry_objects::Circle;
 
@@ -431,5 +433,66 @@ pub fn propagate_from(skeleton: &mut Skeleton, ind_triangle: usize, epsilon: f32
         }
     }
 
+    Ok(())
+}
+
+pub fn export_skel_txt(
+    skel: &Skeleton,
+    nod_out_path_str: &str,
+    edg_out_path_str: &str,
+    del_out_path_str: &str,
+    bnd_out_path_str: &str,
+) -> Result<()> {
+    let mut file_nod = File::create(nod_out_path_str)?;
+    let mut file_edg = File::create(edg_out_path_str)?;
+    let mut file_del = File::create(del_out_path_str)?;
+    let mut file_bnd = File::create(bnd_out_path_str)?;
+
+    let mut cur_ind = 0;
+    let mut corresp = HashMap::new();
+    for i in 0..skel.final_skeleton.len() {
+        if skel.final_skeleton[i] {
+            let circle = skel.skel_circles.get(&i).unwrap();
+            writeln!(
+                file_nod,
+                "{} {} {}",
+                circle.center[0], circle.center[1], circle.radius
+            )?;
+
+            write!(file_del, "{} :", cur_ind)?;
+            for &ind in skel.covered.get(&i).unwrap() {
+                write!(file_del, " {},", ind)?;
+            }
+            writeln!(file_del, "")?;
+
+            corresp.insert(i, cur_ind);
+            cur_ind = cur_ind + 1;
+        }
+    }
+
+    for i1 in 0..skel.final_skeleton.len() {
+        if skel.final_skeleton[i1] {
+            let nei = skel.delaunay_neighbors.get(&i1).unwrap();
+            for &opt_i2 in nei.iter() {
+                if let Some(i2) = opt_i2 {
+                    if i2 > i1 && skel.final_skeleton[i2] {
+                        let corresp1 = corresp.get(&i1).unwrap();
+                        let corresp2 = corresp.get(&i2).unwrap();
+                        writeln!(file_edg, "{} {}", corresp1, corresp2)?;
+                    }
+                }
+            }
+        }
+    }
+
+    writeln!(file_bnd, "%points")?;
+    for &pt in skel.boundary_points.iter() {
+        writeln!(file_bnd, "{} {}", pt[0], pt[1])?;
+    }
+    writeln!(file_bnd, "")?;
+    writeln!(file_bnd, "%edges")?;
+    for i in 0..skel.next_neighbor.len() {
+        writeln!(file_bnd, "{} {}", i, skel.next_neighbor[i])?;
+    }
     Ok(())
 }

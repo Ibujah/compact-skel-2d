@@ -35,11 +35,15 @@ struct Cli {
 fn main() -> Result<()> {
     let args = Cli::parse();
 
-    let image_path_str = args.image_in_path.to_str().unwrap_or("");
-    let output_path_str = args.image_out_path.to_str().unwrap_or("");
+    let image_in_path_str = args.image_in_path.to_str().unwrap_or("");
+    let image_out_path_str = args.image_out_path.to_str().unwrap_or("");
+    let nod_out_path_str = args.nod_out_path.to_str().unwrap_or("");
+    let edg_out_path_str = args.edg_out_path.to_str().unwrap_or("");
+    let del_out_path_str = args.del_out_path.to_str().unwrap_or("");
+    let bnd_out_path_str = args.bnd_out_path.to_str().unwrap_or("");
     let epsilon = args.epsilon;
 
-    let mask = image::open(image_path_str)?;
+    let mask = image::open(image_in_path_str)?;
     let mask_luma8 = mask
         .as_luma8()
         .ok_or(anyhow::Error::msg("Could not convert to luma8"))?;
@@ -96,11 +100,19 @@ fn main() -> Result<()> {
     }
 
     image::save_buffer(
-        output_path_str,
+        image_out_path_str,
         mask_rgb.as_bytes(),
         mask_rgb.width(),
         mask_rgb.height(),
         mask_rgb.color(),
+    )?;
+
+    skeleton2d::export_skel_txt(
+        &skel,
+        nod_out_path_str,
+        edg_out_path_str,
+        del_out_path_str,
+        bnd_out_path_str,
     )?;
 
     Ok(())
