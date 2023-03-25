@@ -19,6 +19,19 @@ pub struct Skeleton {
 }
 
 impl Skeleton {
+    pub fn new() -> Skeleton {
+        Skeleton {
+            boundary_points: Vec::new(),
+            next_neighbor: Vec::new(),
+            prev_neighbor: Vec::new(),
+            delaunay_triangles: Vec::new(),
+            delaunay_neighbors: HashMap::new(),
+            skel_circles: HashMap::new(),
+            covered: HashMap::new(),
+            final_skeleton: Vec::new(),
+        }
+    }
+
     pub fn init(
         boundary_points: &Vec<Vector2<f32>>,
         next_neighbor: &Vec<usize>,
@@ -252,6 +265,101 @@ pub fn find_first_in(skeleton: &mut Skeleton) -> Result<usize> {
         },
     );
 
+    let ind_next = skeleton.next_neighbor[ind_clo];
+
+    let ind_tri = skeleton
+        .delaunay_triangles
+        .iter()
+        .position(|&[n1, n2, n3]| {
+            let config1 = n2 == ind_clo && n1 == ind_next;
+            let config2 = n3 == ind_clo && n2 == ind_next;
+            let config3 = n1 == ind_clo && n3 == ind_next;
+
+            config1 || config2 || config3
+        })
+        .ok_or(anyhow::Error::msg("Could not find first triangle"))?;
+
+    Ok(ind_tri)
+}
+
+pub fn append_and_find_first(
+    skeleton: &mut Skeleton,
+    boundary_points: &Vec<Vector2<f32>>,
+    next_neighbor: &Vec<usize>,
+    prev_neighbor: &Vec<usize>,
+) -> Result<usize> {
+    // append
+    let size_bef = skeleton.boundary_points.len();
+    for &bnd_pt in boundary_points.iter() {
+        skeleton.boundary_points.push(bnd_pt);
+    }
+    for &next in next_neighbor.iter() {
+        skeleton.next_neighbor.push(next + size_bef);
+    }
+    for &prev in prev_neighbor.iter() {
+        skeleton.prev_neighbor.push(prev + size_bef);
+    }
+
+    // delaunay triangulation
+    let points: Vec<Point> = boundary_points
+        .iter()
+        .map(|v| Point {
+            x: v[0] as f64,
+            y: v[1] as f64,
+        })
+        .collect();
+
+    let result = triangulate(&points);
+
+    let mut iter = result.triangles.iter();
+
+    // add triangulation to existing
+    loop {
+        let v1 = iter.next();
+        let v2 = iter.next();
+        let v3 = iter.next();
+
+        match (v1, v2, v3) {
+            (Some(&i1), Some(&i2), Some(&i3)) => {
+                skeleton
+                    .delaunay_triangles
+                    .push([i1 + size_bef, i2 + size_bef, i3 + size_bef]);
+                skeleton.final_skeleton.push(false);
+            }
+            (None, None, None) => break,
+            (_, _, _) => return Err(anyhow::Error::msg("Error collecting delaunay triangles")),
+        }
+    }
+
+    // find first point
+    let corner_box = boundary_points
+        .iter()
+        .fold(None, |corner: Option<Vector2<f32>>, v| match corner {
+            Some(cor) => {
+                let min_x = if cor[0] < v[0] { cor[0] } else { v[0] };
+                let min_y = if cor[1] < v[1] { cor[1] } else { v[1] };
+                Some(Vector2::<f32>::new(min_x, min_y))
+            }
+            None => Some(*v),
+        });
+
+    let corner = corner_box.ok_or(anyhow::Error::msg("Empty boundary"))?;
+
+    // find closest to corner
+    let (ind_clo, _) =
+        boundary_points
+            .iter()
+            .enumerate()
+            .fold((0, 0.0), |(ind_min, dist_min), (ind_cur, v)| {
+                let dist_cur = (v - corner).norm();
+                if ind_cur == 0 || dist_cur < dist_min {
+                    (ind_cur, dist_cur)
+                } else {
+                    (ind_min, dist_min)
+                }
+            });
+
+    let ind_clo = ind_clo + size_bef;
     let ind_next = skeleton.next_neighbor[ind_clo];
 
     let ind_tri = skeleton
