@@ -32,22 +32,22 @@ cargo run --release -- --help
 
 Default test: 
 ```
-cargo run --release -- --imgfile ressources/rat.png --outfile rat_skel.png
+cargo run --release -- --imgin ressources/rat.png --imgout rat_skel.png
 ```
 
 Small square 8-connected
 ```
-cargo run --release -- --imgfile ressources/rat_glitch.png --outfile rat_glitch_skel.png
+cargo run --release -- --imgin ressources/rat_glitch.png --imgout rat_glitch_skel.png
 ```
 
 Small square:
 ```
-cargo run --release -- --imgfile ressources/square_test.png --outfile square_test_skel.png
+cargo run --release -- --imgin ressources/square_test.png --imgout square_test_skel.png
 ```
 
 Several connected components:
 ```
-cargo run --release -- --imgfile ressources/cc_test.png --outfile cc_test_skel.png
+cargo run --release -- --imgin ressources/cc_test.png --imgout cc_test_skel.png
 ```
 
 
