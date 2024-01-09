@@ -299,8 +299,6 @@ pub fn append_and_find_first(
     let mut delaunay_2d = DelaunayStructure2D::new();
     delaunay_2d.insert_vertices(&points, true)?;
 
-    println!("{}", delaunay_2d.get_simplicial().get_nb_triangles());
-
     // add triangulation to existing
     for ind_triangle in 0..delaunay_2d.get_simplicial().get_nb_triangles() {
         let triangle = delaunay_2d.get_simplicial().get_triangle(ind_triangle)?;

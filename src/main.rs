@@ -1,5 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
+use env_logger;
+use log;
 use std::time::Instant;
 
 use image::GenericImageView;
@@ -33,6 +35,7 @@ struct Cli {
 }
 
 fn main() -> Result<()> {
+    env_logger::init();
     let args = Cli::parse();
 
     let image_in_path_str = args.image_in_path.to_str().unwrap_or("");
@@ -65,24 +68,24 @@ fn main() -> Result<()> {
     let mut mask_rgb = image::DynamicImage::ImageRgb8(mask_rgb);
 
     let now = Instant::now();
-    println!("Boundary computation");
+    log::info!("Boundary computation");
     let vec_bnd = boundary2d::Boundary2d::from_marching_squares(mask_luma8)?;
     let mut skel = skeleton2d::Skeleton::new();
     for bnd in vec_bnd {
-        println!("Add boundary to skeleton and find first triangle");
+        log::info!("Add boundary to skeleton and find first triangle");
         let ind_tri = skeleton2d::append_and_find_first(
             &mut skel,
             &bnd.points,
             &bnd.next_neighbor,
             &bnd.prev_neighbor,
         )?;
-        println!("Finding nearest maximum");
+        log::info!("Finding nearest maximum");
         let ind_max = skeleton2d::find_nearest_maximum(&mut skel, ind_tri)?;
-        println!("Skeleton propagation");
+        log::info!("Skeleton propagation");
         skeleton2d::propagate_from(&mut skel, ind_max, epsilon)?;
     }
     let duration = now.elapsed();
-    println!("Skeleton computed in {}ms", duration.as_millis());
+    log::info!("Skeleton computed in {}ms", duration.as_millis());
 
     let edges_ind = skel.get_edges_ind();
 
