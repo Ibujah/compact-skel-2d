@@ -1,6 +1,7 @@
 use anyhow::Result;
-use delaunator::{triangulate, Point};
 use nalgebra::base::*;
+use simple_delaunay_lib::delaunay_2d::delaunay_struct_2d::DelaunayStructure2D;
+use simple_delaunay_lib::delaunay_2d::simplicial_struct_2d::Node;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
@@ -52,30 +53,18 @@ impl Skeleton {
     }
 
     pub fn compute_delaunay_triangles(&mut self) -> Result<()> {
-        let points: Vec<Point> = self
+        let points: Vec<[f64; 2]> = self
             .boundary_points
             .iter()
-            .map(|v| Point {
-                x: v[0] as f64,
-                y: v[1] as f64,
-            })
+            .map(|v| [v[0] as f64, v[1] as f64])
             .collect();
+        let mut delaunay_2d = DelaunayStructure2D::new();
+        delaunay_2d.insert_vertices(&points, true)?;
 
-        let result = triangulate(&points);
-
-        let mut iter = result.triangles.iter();
-
-        loop {
-            let v1 = iter.next();
-            let v2 = iter.next();
-            let v3 = iter.next();
-
-            match (v1, v2, v3) {
-                (Some(&i1), Some(&i2), Some(&i3)) => {
-                    self.delaunay_triangles.push([i1, i2, i3]);
-                }
-                (None, None, None) => break,
-                (_, _, _) => return Err(anyhow::Error::msg("Error collecting delaunay triangles")),
+        for ind_triangle in 0..delaunay_2d.get_simplicial().get_nb_triangles() {
+            let triangle = delaunay_2d.get_simplicial().get_triangle(ind_triangle)?;
+            if let [Node::Value(i1), Node::Value(i2), Node::Value(i3)] = triangle.nodes() {
+                self.delaunay_triangles.push([i1, i2, i3]);
             }
         }
 
@@ -303,33 +292,21 @@ pub fn append_and_find_first(
     }
 
     // delaunay triangulation
-    let points: Vec<Point> = boundary_points
+    let points: Vec<[f64; 2]> = boundary_points
         .iter()
-        .map(|v| Point {
-            x: v[0] as f64,
-            y: v[1] as f64,
-        })
+        .map(|v| [v[0] as f64, v[1] as f64])
         .collect();
-
-    let result = triangulate(&points);
-
-    let mut iter = result.triangles.iter();
+    let mut delaunay_2d = DelaunayStructure2D::new();
+    delaunay_2d.insert_vertices(&points, true)?;
 
     // add triangulation to existing
-    loop {
-        let v1 = iter.next();
-        let v2 = iter.next();
-        let v3 = iter.next();
-
-        match (v1, v2, v3) {
-            (Some(&i1), Some(&i2), Some(&i3)) => {
-                skeleton
-                    .delaunay_triangles
-                    .push([i1 + size_bef, i2 + size_bef, i3 + size_bef]);
-                skeleton.final_skeleton.push(false);
-            }
-            (None, None, None) => break,
-            (_, _, _) => return Err(anyhow::Error::msg("Error collecting delaunay triangles")),
+    for ind_triangle in 0..delaunay_2d.get_simplicial().get_nb_triangles() {
+        let triangle = delaunay_2d.get_simplicial().get_triangle(ind_triangle)?;
+        if let [Node::Value(i1), Node::Value(i2), Node::Value(i3)] = triangle.nodes() {
+            skeleton
+                .delaunay_triangles
+                .push([i1 + size_bef, i2 + size_bef, i3 + size_bef]);
+            skeleton.final_skeleton.push(false);
         }
     }
 
