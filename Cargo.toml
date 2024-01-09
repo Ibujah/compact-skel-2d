@@ -11,4 +11,4 @@ image = "0.23.14"
 imageproc = "0.22.0"
 anyhow = "1.0.66"
 nalgebra = "0.31.3"
-delaunator = "1.0.1"
+simple_delaunay_lib = { git = "https://github.com/Ibujah/simple_delaunay_lib.git" }
