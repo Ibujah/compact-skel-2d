@@ -103,13 +103,12 @@ impl SkeletonPersp {
             if let [Node::Value(i1), Node::Value(i2), Node::Value(i3), Node::Value(i4)] =
                 tetrahedron.nodes()
             {
-                // TODO: check faces order
                 if i1 == ind_ori {
-                    self.delaunay_triangles.push([i2, i3, i4]);
+                    self.delaunay_triangles.push([i2, i4, i3]);
                 } else if i2 == ind_ori {
                     self.delaunay_triangles.push([i1, i3, i4]);
                 } else if i3 == ind_ori {
-                    self.delaunay_triangles.push([i1, i2, i4]);
+                    self.delaunay_triangles.push([i1, i4, i3]);
                 } else if i4 == ind_ori {
                     self.delaunay_triangles.push([i1, i2, i3]);
                 }
@@ -391,13 +390,12 @@ pub fn append_and_find_first(
         if let [Node::Value(i1), Node::Value(i2), Node::Value(i3), Node::Value(i4)] =
             tetrahedron.nodes()
         {
-            // TODO: check faces order
             if i1 == ind_ori {
-                skeleton.delaunay_triangles.push([i2, i3, i4]);
+                skeleton.delaunay_triangles.push([i2, i4, i3]);
             } else if i2 == ind_ori {
                 skeleton.delaunay_triangles.push([i1, i3, i4]);
             } else if i3 == ind_ori {
-                skeleton.delaunay_triangles.push([i1, i2, i4]);
+                skeleton.delaunay_triangles.push([i1, i4, i3]);
             } else if i4 == ind_ori {
                 skeleton.delaunay_triangles.push([i1, i2, i3]);
             }
