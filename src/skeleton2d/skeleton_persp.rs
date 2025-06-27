@@ -84,42 +84,6 @@ impl SkeletonPersp {
         }
     }
 
-    pub fn compute_delaunay_triangles(&mut self) -> Result<()> {
-        let mut points: Vec<[f64; 3]> = self
-            .boundary_points
-            .iter()
-            .map(|v| persp_point([v[0], v[1]], self.fu, self.fv, self.cu, self.cv))
-            .map(|v| [v[0] as f64, v[1] as f64, v[2] as f64])
-            .collect();
-        points.push([0., 0., 0.]);
-        let ind_ori = points.len() - 1;
-        let mut delaunay_3d = DelaunayStructure3D::new();
-        delaunay_3d.insert_vertices(&points, true)?;
-
-        for ind_tetrahedron in 0..delaunay_3d.get_simplicial().get_nb_tetrahedra() {
-            let tetrahedron = delaunay_3d
-                .get_simplicial()
-                .get_tetrahedron(ind_tetrahedron)?;
-            if let [Node::Value(i1), Node::Value(i2), Node::Value(i3), Node::Value(i4)] =
-                tetrahedron.nodes()
-            {
-                if i1 == ind_ori {
-                    self.delaunay_triangles.push([i2, i4, i3]);
-                } else if i2 == ind_ori {
-                    self.delaunay_triangles.push([i1, i3, i4]);
-                } else if i3 == ind_ori {
-                    self.delaunay_triangles.push([i1, i4, i3]);
-                } else if i4 == ind_ori {
-                    self.delaunay_triangles.push([i1, i2, i3]);
-                }
-            }
-        }
-
-        self.final_skeleton = vec![false; self.delaunay_triangles.len()];
-
-        Ok(())
-    }
-
     fn find_neighbors(&self, ind_triangle: usize) -> [Option<usize>; 3] {
         let [i1, i2, i3] = self.delaunay_triangles[ind_triangle];
 
@@ -159,6 +123,9 @@ impl SkeletonPersp {
     }
 
     pub fn get_non_crossing_neighbors(&mut self, ind_triangle: usize) -> [Option<usize>; 3] {
+        if ind_triangle >= self.delaunay_triangles.len() {
+            return [None, None, None];
+        }
         let all_nei = self.get_neighbors(ind_triangle);
         let ind_tri = self.delaunay_triangles[ind_triangle];
         let mut kept_nei = [None, None, None];
@@ -300,50 +267,6 @@ impl SkeletonPersp {
     }
 }
 
-pub fn find_first_in(skeleton: &mut SkeletonPersp) -> Result<usize> {
-    let corner_box = skeleton.boundary_points.iter().fold(
-        None,
-        |corner: Option<Vector2<f32>>, v| match corner {
-            Some(cor) => {
-                let min_x = if cor[0] < v[0] { cor[0] } else { v[0] };
-                let min_y = if cor[1] < v[1] { cor[1] } else { v[1] };
-                Some(Vector2::<f32>::new(min_x, min_y))
-            }
-            None => Some(*v),
-        },
-    );
-
-    let corner = corner_box.ok_or(anyhow::Error::msg("Empty boundary"))?;
-
-    let (ind_clo, _) = skeleton.boundary_points.iter().enumerate().fold(
-        (0, 0.0),
-        |(ind_min, dist_min), (ind_cur, v)| {
-            let dist_cur = (v - corner).norm();
-            if ind_cur == 0 || dist_cur < dist_min {
-                (ind_cur, dist_cur)
-            } else {
-                (ind_min, dist_min)
-            }
-        },
-    );
-
-    let ind_next = skeleton.next_neighbor[ind_clo];
-
-    let ind_tri = skeleton
-        .delaunay_triangles
-        .iter()
-        .position(|&[n1, n2, n3]| {
-            let config1 = n2 == ind_clo && n1 == ind_next;
-            let config2 = n3 == ind_clo && n2 == ind_next;
-            let config3 = n1 == ind_clo && n3 == ind_next;
-
-            config1 || config2 || config3
-        })
-        .ok_or(anyhow::Error::msg("Could not find first triangle"))?;
-
-    Ok(ind_tri)
-}
-
 pub fn append_and_find_first(
     skeleton: &mut SkeletonPersp,
     boundary_points: &Vec<Vector2<f32>>,
@@ -391,17 +314,22 @@ pub fn append_and_find_first(
             tetrahedron.nodes()
         {
             if i1 == ind_ori {
-                skeleton.delaunay_triangles.push([i2, i4, i3]);
+                skeleton
+                    .delaunay_triangles
+                    .push([i2 + size_bef, i4 + size_bef, i3 + size_bef]);
             } else if i2 == ind_ori {
-                skeleton.delaunay_triangles.push([i1, i3, i4]);
+                skeleton
+                    .delaunay_triangles
+                    .push([i1 + size_bef, i3 + size_bef, i4 + size_bef]);
             } else if i3 == ind_ori {
-                skeleton.delaunay_triangles.push([i1, i4, i3]);
+                skeleton
+                    .delaunay_triangles
+                    .push([i1 + size_bef, i4 + size_bef, i2 + size_bef]);
             } else if i4 == ind_ori {
-                skeleton.delaunay_triangles.push([i1, i2, i3]);
+                skeleton
+                    .delaunay_triangles
+                    .push([i1 + size_bef, i2 + size_bef, i3 + size_bef]);
             }
-            skeleton
-                .delaunay_triangles
-                .push([i1 + size_bef, i2 + size_bef, i3 + size_bef]);
             skeleton.final_skeleton.push(false);
         }
     }
@@ -572,4 +500,61 @@ pub fn export_skel_txt(
         writeln!(file_bnd, "{} {}", i, skel.next_neighbor[i])?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests_skel_persp {
+    use crate::skeleton2d::skeleton_persp;
+
+    use super::*;
+
+    #[test]
+    fn test_compute_del_tri() {
+        let mut skel = SkeletonPersp::new(1.0, 1.0, 0.0, 0.0);
+        let boundary_points = vec![
+            Vector2::new(0.0, 0.0),
+            Vector2::new(1.0, 0.0),
+            Vector2::new(1.0, 1.0),
+        ];
+        let next_neighbor = vec![1, 2, 0];
+        let prev_neighbor = vec![2, 0, 1];
+        let ind_first = skeleton_persp::append_and_find_first(
+            &mut skel,
+            &boundary_points,
+            &next_neighbor,
+            &prev_neighbor,
+        )
+        .unwrap();
+
+        assert_eq!(skel.delaunay_triangles.len(), 1);
+        assert_eq!(skel.delaunay_triangles[0], [0, 2, 1]);
+
+        skeleton_persp::propagate_from(&mut skel, ind_first, 0.).unwrap();
+    }
+
+    #[test]
+    fn test_compute_del_tri_2() {
+        let mut skel = SkeletonPersp::new(1.0, 1.0, 0.0, 0.0);
+        let boundary_points = vec![
+            Vector2::new(0.0, 0.0),
+            Vector2::new(1.0, 0.0),
+            Vector2::new(1.0, 1.0),
+            Vector2::new(0.0, 1.0),
+        ];
+        let next_neighbor = vec![1, 2, 3, 0];
+        let prev_neighbor = vec![3, 0, 1, 2];
+        let ind_first = skeleton_persp::append_and_find_first(
+            &mut skel,
+            &boundary_points,
+            &next_neighbor,
+            &prev_neighbor,
+        )
+        .unwrap();
+
+        assert_eq!(skel.delaunay_triangles.len(), 2);
+        assert_eq!(skel.delaunay_triangles[0], [1, 0, 2]);
+        assert_eq!(skel.delaunay_triangles[1], [0, 3, 2]);
+
+        skeleton_persp::propagate_from(&mut skel, ind_first, 0.).unwrap();
+    }
 }

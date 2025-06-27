@@ -19,19 +19,19 @@ struct Cli {
     #[arg(default_value = "./ressources/rat_skel.png", long = "imgout")]
     image_out_path: std::path::PathBuf,
 
-    #[arg(default_value = "800", long = "fu")]
+    #[arg(default_value = "300", long = "fu")]
     fu: f32,
 
-    #[arg(default_value = "800", long = "fv")]
+    #[arg(default_value = "300", long = "fv")]
     fv: f32,
 
-    #[arg(default_value = "400", long = "cu")]
+    #[arg(default_value = "150", long = "cu")]
     cu: f32,
 
-    #[arg(default_value = "300", long = "cv")]
+    #[arg(default_value = "150", long = "cv")]
     cv: f32,
 
-    #[arg(default_value = "1.0", long = "epsilon")]
+    #[arg(default_value = "0.1", long = "epsilon")]
     epsilon: f32,
 
     #[arg(default_value = "./ressources/nod.txt", long = "nodout")]
