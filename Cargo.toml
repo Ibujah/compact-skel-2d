@@ -14,3 +14,12 @@ nalgebra = "0.31.3"
 env_logger="0.10.0"
 log="0.4.20"
 simple_delaunay_lib = { git = "https://github.com/Ibujah/simple_delaunay_lib.git" }
+
+[[bin]]
+name = "soft_2d_skeletonization"
+path = "src/bin/soft_2d_skeletonization.rs"
+
+
+[[bin]]
+name = "soft_persp_skeletonization"
+path = "src/bin/soft_persp_skeletonization.rs"
