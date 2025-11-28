@@ -6,6 +6,7 @@ use std::time::Instant;
 
 use image::GenericImageView;
 use imageproc;
+use imageproc::contrast::threshold;
 
 use compact_skel_2d::boundary2d::boundary2d;
 use compact_skel_2d::skeleton2d::skeleton2d;
@@ -50,6 +51,7 @@ fn main() -> Result<()> {
     let mask_luma8 = mask
         .as_luma8()
         .ok_or(anyhow::Error::msg("Could not convert to luma8"))?;
+    let mask_bin = threshold(&mask_luma8, 125);
     let mask_rgb = image::RgbImage::from_vec(
         mask.width(),
         mask.height(),
@@ -69,7 +71,7 @@ fn main() -> Result<()> {
 
     let now = Instant::now();
     log::info!("Boundary computation");
-    let vec_bnd = boundary2d::Boundary2d::from_marching_squares(mask_luma8)?;
+    let vec_bnd = boundary2d::Boundary2d::from_marching_squares(&mask_bin)?;
     let mut skel = skeleton2d::Skeleton::new();
     for bnd in vec_bnd {
         log::info!("Add boundary to skeleton and find first triangle");
